@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'model_task.dart';
+import 'state_task.dart';
 
 void main() {
   runApp(ChangeNotifierProvider(
@@ -43,15 +47,20 @@ class _MyHomePageState extends State<MyHomePage> {
               appBar: AppBar(
                 title: Text(widget.title),
               ),
-              body: ListView.builder(
-                itemCount: value.tasks.length,
-                itemBuilder: (BuildContext context, index) => MyTask(
-                  id: value.tasks[index].id,
-                  title: value.tasks[index].title,
-                  description: value.tasks[index].description,
-                  active: value.tasks[index].active,
-                ),
-              ),
+              body: value.tasks.isEmpty
+                  ? const Center(
+                      child: Text('Vazio'),
+                    )
+                  : ListView.builder(
+                      itemCount: value.tasks.length,
+                      itemBuilder: (BuildContext context, index) => MyTask(
+                        id: value.tasks[index].id,
+                        title: value.tasks[index].title,
+                        description: value.tasks[index].description,
+                        active: value.tasks[index].active,
+                        index: index,
+                      ),
+                    ),
               floatingActionButton: FloatingActionButton(
                 onPressed: value.increment,
                 child: const Icon(Icons.add),
@@ -66,12 +75,14 @@ class MyTask extends StatefulWidget {
       required this.title,
       required this.description,
       required this.active,
-      required this.id})
+      required this.id,
+      required this.index})
       : super(key: key);
   final String title;
   final String description;
-  final bool active;
+  final int active;
   final int id;
+  final int index;
 
   @override
   State<MyTask> createState() => _MyTask();
@@ -80,27 +91,31 @@ class MyTask extends StatefulWidget {
 class _MyTask extends State<MyTask> {
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        print('<${widget.title}>');
-        Navigator.pushNamed(context, '/task',
-            arguments: MyNavi2Task(widget.id, widget.title));
-      },
-      child: Container(
-        height: 80,
-        color: widget.active ? Colors.yellow[100] : Colors.green[300],
-        child: Padding(
-          padding: const EdgeInsets.all(10.0),
-          child: Column(
-            textDirection: TextDirection.ltr,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.title,
-                style: const TextStyle(fontSize: 35),
-              ),
-              Text(widget.description),
-            ],
+    return Consumer<MyStateTask>(
+      builder: (context, value, child) => GestureDetector(
+        onDoubleTap: () {
+          Navigator.pushNamed(context, '/task',
+              arguments: MyNavi2Task(widget.id, widget.title, widget.index));
+        },
+        onTap: () {
+          value.delete(widget.id);
+        },
+        child: Container(
+          height: 80,
+          color: widget.active == 0 ? Colors.yellow[100] : Colors.green[300],
+          child: Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: Column(
+              textDirection: TextDirection.ltr,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.title,
+                  style: const TextStyle(fontSize: 35),
+                ),
+                Text(widget.description),
+              ],
+            ),
           ),
         ),
       ),
@@ -118,16 +133,16 @@ class MyTaskDetail extends StatelessWidget {
     return Consumer<MyStateTask>(
       builder: (context, value, child) => Scaffold(
         appBar: AppBar(title: Text(args.title)),
-        body: MyTaskForm(id: args.id),
+        body: MyTaskForm(index: args.index),
       ),
     );
   }
 }
 
 class MyTaskForm extends StatefulWidget {
-  MyTaskForm({super.key, required this.id});
+  MyTaskForm({super.key, required this.index});
 
-  final id;
+  final index;
 
   @override
   MyTaskFormState createState() {
@@ -146,17 +161,24 @@ class MyTaskFormState extends State<MyTaskForm> {
         child: Column(
           children: [
             TextFormField(
-              initialValue: value.tasks[widget.id].title,
+              initialValue: value.tasks[widget.index].title,
               validator: (title) {},
               onSaved: (String? title) {
                 print(title);
-                value.update(widget.id, title);
+                if (title != null) {
+                  MyTasksModel task = MyTasksModel(
+                      id: value.tasks[widget.index].id,
+                      title: title,
+                      description: '---',
+                      active: 1);
+                  int id = value.tasks[widget.index].id;
+                  value.update(id, task);
+                }
               },
             ),
             ElevatedButton(
                 onPressed: () {
                   if (_formKey.currentState!.validate()) {
-                    print('legal!');
                     _formKey.currentState!.save();
                   }
                 },
@@ -166,42 +188,4 @@ class MyTaskFormState extends State<MyTaskForm> {
       ),
     );
   }
-}
-
-class MyTasksModel {
-  int id;
-  String title;
-  String description;
-  bool active;
-
-  MyTasksModel(this.id, this.title, this.description, this.active);
-}
-
-class MyStateTask extends ChangeNotifier {
-  final List<MyTasksModel> tasks = [
-    MyTasksModel(0, 'a', 'b', true),
-    MyTasksModel(1, 'a1', 'b5', true),
-    MyTasksModel(2, 'a2', 'b6', false),
-    MyTasksModel(3, 'a3', 'b7', true),
-    MyTasksModel(4, 'a4', 'b8', false),
-  ];
-  int count = 5;
-
-  void increment() {
-    tasks.add(MyTasksModel(count, 'a $count', 'b ${count * 10}', false));
-    count++;
-    notifyListeners();
-  }
-
-  void update(int id, String? title) {
-    tasks[id].title = title == null ? "NA" : title;
-    notifyListeners();
-  }
-}
-
-class MyNavi2Task {
-  final int id;
-  final String title;
-
-  MyNavi2Task(this.id, this.title);
 }
