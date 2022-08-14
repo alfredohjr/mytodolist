@@ -25,6 +25,21 @@ class MyStateTask extends ChangeNotifier {
     });
   }
 
+  void create(String title) async {
+    final prefs = await SharedPreferences.getInstance();
+    var task =
+        MyTasksModel(id: count, title: title, description: '---', active: 1);
+
+    db = MyTasksDB();
+    db.init().whenComplete(() async {
+      await db.insertTask(task);
+    });
+    count++;
+    tasks.insert(0, task);
+    prefs.setInt('MyTodoList_count', count);
+    notifyListeners();
+  }
+
   int tasksLenght() {
     return tasks.length;
   }
@@ -62,6 +77,15 @@ class MyStateTask extends ChangeNotifier {
     db = MyTasksDB();
     db.init().whenComplete(() async {
       await db.update(task, id);
+      load();
+      notifyListeners();
+    });
+  }
+
+  void changeActive(int id) {
+    db = MyTasksDB();
+    db.init().whenComplete(() async {
+      await db.changeActive(id);
       load();
       notifyListeners();
     });

@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'model_task.dart';
 import 'state_task.dart';
 
+Color myColor = const Color.fromRGBO(1, 1, 1, 1);
+
 void main() {
   runApp(ChangeNotifierProvider(
     create: (context) => MyStateTask(),
@@ -20,7 +22,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'My TodoList',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primaryColor: const Color.fromRGBO(28, 37, 65, 1),
       ),
       home: const MyHomePage(title: 'TodoList'),
       routes: <String, WidgetBuilder>{
@@ -45,27 +47,82 @@ class _MyHomePageState extends State<MyHomePage> {
     return Consumer<MyStateTask>(
         builder: (context, value, child) => Scaffold(
               appBar: AppBar(
-                title: Text(widget.title),
+                title: Text('TodoList'),
+                backgroundColor: const Color.fromRGBO(58, 80, 107, 1),
               ),
-              body: value.tasks.isEmpty
-                  ? const Center(
-                      child: Text('Vazio'),
-                    )
-                  : ListView.builder(
-                      itemCount: value.tasks.length,
-                      itemBuilder: (BuildContext context, index) => MyTask(
-                        id: value.tasks[index].id,
-                        title: value.tasks[index].title,
-                        description: value.tasks[index].description,
-                        active: value.tasks[index].active,
-                        index: index,
-                      ),
-                    ),
-              floatingActionButton: FloatingActionButton(
-                onPressed: value.increment,
-                child: const Icon(Icons.add),
+              body: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: <Widget>[
+                  _MyAddTask(),
+                  Expanded(child: _MyListTasks())
+                ],
               ),
+              backgroundColor: const Color.fromRGBO(28, 37, 65, 1),
             ));
+  }
+}
+
+class _MyAddTask extends StatelessWidget {
+  _MyAddTask({Key? key}) : super(key: key);
+  final _formKey = GlobalKey<FormState>();
+  var controller = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(50, 5, 90, 20),
+      child: Consumer<MyStateTask>(
+        builder: (context, value, child) => TextField(
+          controller: controller,
+          onSubmitted: (title) {
+            if (title.length > 5) {
+              value.create(title);
+              controller.text = '';
+            }
+          },
+          decoration: const InputDecoration(
+            icon: Icon(Icons.add, color: Colors.white),
+            labelText: 'Tarefa',
+            labelStyle: TextStyle(color: Colors.white),
+            border: UnderlineInputBorder(),
+            enabledBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: Colors.white, width: .2)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MyListTasks extends StatelessWidget {
+  _MyListTasks({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<MyStateTask>(
+        builder: (context, value, child) => value.tasks.isEmpty
+            ? const Center(
+                child: Text('Vazio'),
+              )
+            : ListView.separated(
+                shrinkWrap: true,
+                padding: EdgeInsets.fromLTRB(
+                  50,
+                  0,
+                  50,
+                  0,
+                ),
+                separatorBuilder: (BuildContext context, int index) =>
+                    const Divider(height: 3),
+                itemCount: value.tasks.length,
+                itemBuilder: (BuildContext context, index) => MyTask(
+                  id: value.tasks[index].id,
+                  title: value.tasks[index].title,
+                  description: value.tasks[index].description,
+                  active: value.tasks[index].active,
+                  index: index,
+                ),
+              ));
   }
 }
 
@@ -98,11 +155,16 @@ class _MyTask extends State<MyTask> {
               arguments: MyNavi2Task(widget.id, widget.title, widget.index));
         },
         onTap: () {
-          value.delete(widget.id);
+          value.changeActive(widget.id);
         },
         child: Container(
-          height: 80,
-          color: widget.active == 0 ? Colors.yellow[100] : Colors.green[300],
+          height: 50,
+          decoration: BoxDecoration(
+            color: widget.active == 1
+                ? Color.fromRGBO(91, 192, 190, 1)
+                : Colors.green[200],
+            borderRadius: BorderRadius.circular(10),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(10.0),
             child: Column(
@@ -111,9 +173,8 @@ class _MyTask extends State<MyTask> {
               children: [
                 Text(
                   widget.title,
-                  style: const TextStyle(fontSize: 35),
+                  style: const TextStyle(fontSize: 15, color: Colors.white),
                 ),
-                Text(widget.description),
               ],
             ),
           ),
@@ -163,8 +224,7 @@ class MyTaskFormState extends State<MyTaskForm> {
             TextFormField(
               initialValue: value.tasks[widget.index].title,
               validator: (title) {},
-              onSaved: (String? title) {
-                print(title);
+              onSaved: (title) {
                 if (title != null) {
                   MyTasksModel task = MyTasksModel(
                       id: value.tasks[widget.index].id,

@@ -46,6 +46,26 @@ class MyTasksDB {
     await db.update('tasks', task.toMap(), where: 'id = ?', whereArgs: [id]);
     return 0;
   }
+
+  Future<int> changeActive(int id) async {
+    final Database db = await init();
+    int active = 0;
+
+    var result =
+        await db.rawQuery('select active from tasks where id = ?', [id]);
+
+    if (result.isNotEmpty) {
+      if (result[0]['active'] == 1) {
+        active = 0;
+      } else {
+        active = 1;
+      }
+    }
+
+    await db
+        .rawUpdate('update tasks set active = ? where id = ?', [active, id]);
+    return 0;
+  }
 }
 
 class MyTasksModel {
