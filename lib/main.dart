@@ -102,7 +102,7 @@ class _MyListTasks extends StatelessWidget {
     return Consumer<MyStateTask>(
         builder: (context, value, child) => value.tasks.isEmpty
             ? const Center(
-                child: Text('Vazio'),
+                child: Text('Vazio', style: TextStyle(color: Colors.white)),
               )
             : ListView.separated(
                 shrinkWrap: true,
@@ -156,6 +156,9 @@ class _MyTask extends State<MyTask> {
         },
         onTap: () {
           value.changeActive(widget.id);
+        },
+        onLongPress: () {
+          value.delete(widget.id);
         },
         child: Container(
           height: 50,
