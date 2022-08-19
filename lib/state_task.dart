@@ -27,8 +27,12 @@ class MyStateTask extends ChangeNotifier {
 
   void create(String title) async {
     final prefs = await SharedPreferences.getInstance();
-    var task =
-        MyTasksModel(id: count, title: title, description: '---', active: 1);
+    var task = MyTasksModel(
+        id: count,
+        title: title,
+        description: '---',
+        active: 1,
+        scheduleAt: DateTime.now().toString());
 
     db = MyTasksDB();
     db.init().whenComplete(() async {
@@ -51,7 +55,8 @@ class MyStateTask extends ChangeNotifier {
         id: count,
         title: 'title ${count}',
         description: 'description ${count}',
-        active: 1);
+        active: 1,
+        scheduleAt: DateTime.now().toString());
 
     db = MyTasksDB();
     db.init().whenComplete(() async {
@@ -89,6 +94,15 @@ class MyStateTask extends ChangeNotifier {
       load();
       notifyListeners();
     });
+  }
+
+  String? updateScheduleDateTime(int id, DateTime? date, TimeOfDay? time) {
+    db = MyTasksDB();
+    var result = 'Erro, tente novamente';
+    db.init().whenComplete(() async {
+      result = await db.updateScheduleDateTime(id, date, time);
+    });
+    return result;
   }
 }
 
