@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'model_task.dart';
+import 'api_notification.dart';
 
 class MyStateTask extends ChangeNotifier {
   List<MyTasksModel> tasks = [];
@@ -13,7 +14,7 @@ class MyStateTask extends ChangeNotifier {
     load();
   }
 
-  void load() async {
+  Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
 
     count = (prefs.getInt('MyTodoList_count') ?? 0);
@@ -96,12 +97,20 @@ class MyStateTask extends ChangeNotifier {
     });
   }
 
-  String? updateScheduleDateTime(int id, DateTime? date, TimeOfDay? time) {
+  Future<String?> updateScheduleDateTime(
+      int id, int index, DateTime? date, TimeOfDay? time) async {
     db = MyTasksDB();
     var result = 'Erro, tente novamente';
     db.init().whenComplete(() async {
       result = await db.updateScheduleDateTime(id, date, time);
     });
+
+    await load();
+
+    const notification = ApiNotification();
+    await notification.showNotificationWithCustomTimestamp(
+        tasks[index], date, time);
+
     return result;
   }
 }

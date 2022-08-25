@@ -1,11 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 import 'model_task.dart';
 import 'state_task.dart';
+import 'api_notification.dart';
 
-void main() {
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  const AndroidInitializationSettings initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  final InitializationSettings initializationSettings = InitializationSettings(
+    android: initializationSettingsAndroid,
+  );
+
+  await flutterLocalNotificationsPlugin.initialize(initializationSettings,
+      onSelectNotification: (String? payload) async {});
+
   runApp(ChangeNotifierProvider(
     create: (context) => MyStateTask(),
     child: const MyApp(),
@@ -40,6 +58,39 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  Future<void> _showNotificationWithCustomTimestamp() async {
+    tz.initializeTimeZones();
+    tz.setLocalLocation(tz.getLocation('America/Sao_Paulo'));
+
+    flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestPermission();
+
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      '1111',
+      'NumeroUmname',
+      channelDescription: 'NumeroUmdescription',
+      importance: Importance.max,
+      priority: Priority.high,
+      when: DateTime.now().millisecondsSinceEpoch + 5000,
+    );
+
+    final NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+        10,
+        'plain title',
+        'plain body',
+        tz.TZDateTime.now(tz.local).add(const Duration(seconds: 5)),
+        platformChannelSpecifics,
+        androidAllowWhileIdle: true,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<MyStateTask>(
@@ -56,6 +107,9 @@ class _MyHomePageState extends State<MyHomePage> {
                 ],
               ),
               backgroundColor: const Color.fromRGBO(28, 37, 65, 1),
+              floatingActionButton: FloatingActionButton(onPressed: () async {
+                await _showNotificationWithCustomTimestamp();
+              }),
             ));
   }
 }
@@ -103,24 +157,50 @@ class _MyListTasks extends StatelessWidget {
             ? const Center(
                 child: Text('Vazio', style: TextStyle(color: Colors.white)),
               )
-            : ListView.separated(
-                shrinkWrap: true,
-                padding: EdgeInsets.fromLTRB(
-                  50,
-                  0,
-                  50,
-                  0,
-                ),
-                separatorBuilder: (BuildContext context, int index) =>
-                    const Divider(height: 3),
-                itemCount: value.tasks.length,
-                itemBuilder: (BuildContext context, index) => MyTask(
-                  id: value.tasks[index].id,
-                  title: value.tasks[index].title,
-                  description: value.tasks[index].description,
-                  active: value.tasks[index].active,
-                  index: index,
-                ),
+            : SingleChildScrollView(
+                child: Column(children: <Widget>[
+                  ExpansionTile(
+                      title: Text('Pendentes'),
+                      initiallyExpanded: true,
+                      collapsedTextColor: Colors.white,
+                      collapsedIconColor: Colors.white,
+                      children: <Widget>[
+                        ListView.separated(
+                          shrinkWrap: true,
+                          padding: EdgeInsets.fromLTRB(
+                            50,
+                            0,
+                            50,
+                            0,
+                          ),
+                          separatorBuilder: (BuildContext context, int index) =>
+                              const Divider(height: 3),
+                          itemCount: value.tasks.length,
+                          itemBuilder: (BuildContext context, index) => MyTask(
+                            id: value.tasks[index].id,
+                            title: value.tasks[index].title,
+                            description: value.tasks[index].description,
+                            active: value.tasks[index].active,
+                            index: index,
+                          ),
+                        )
+                      ]),
+                  ExpansionTile(
+                    title: Text('Adiados'),
+                    collapsedTextColor: Colors.white,
+                    collapsedIconColor: Colors.white,
+                  ),
+                  ExpansionTile(
+                    title: Text('Finalizados'),
+                    collapsedTextColor: Colors.white,
+                    collapsedIconColor: Colors.white,
+                  ),
+                  ExpansionTile(
+                    title: Text('Excluídos'),
+                    collapsedTextColor: Colors.white,
+                    collapsedIconColor: Colors.white,
+                  ),
+                ]),
               ));
   }
 }
@@ -283,8 +363,12 @@ class MyTaskFormState extends State<MyTaskForm> {
                     TimeOfDay? time = await showTimePicker(
                         context: context, initialTime: TimeOfDay.now());
 
-                    String? datePTBRFormatted = value.updateScheduleDateTime(
-                        value.tasks[widget.index].id, date, time);
+                    String? datePTBRFormatted =
+                        await value.updateScheduleDateTime(
+                            value.tasks[widget.index].id,
+                            widget.index,
+                            date,
+                            time);
                     if (datePTBRFormatted != null) {
                       datetimeController.text = datePTBRFormatted;
                     }
