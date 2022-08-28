@@ -7,6 +7,10 @@ import 'api_notification.dart';
 
 class MyStateTask extends ChangeNotifier {
   List<MyTasksModel> tasks = [];
+  List<MyTasksModel> tasksPending = [];
+  List<MyTasksModel> tasksForLater = [];
+  List<MyTasksModel> tasksFinished = [];
+  List<MyTasksModel> tasksDeleted = [];
   int count = 0;
   late MyTasksDB db;
 
@@ -14,16 +18,43 @@ class MyStateTask extends ChangeNotifier {
     load();
   }
 
-  Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    count = (prefs.getInt('MyTodoList_count') ?? 0);
-
+  Future<void> loadTasksPending() async {
     db = MyTasksDB();
     db.init().whenComplete(() async {
-      tasks = await db.list();
+      tasksPending = await db.listTasksPending();
       notifyListeners();
     });
+  }
+
+  Future<void> loadTasksForLater() async {
+    db = MyTasksDB();
+    db.init().whenComplete(() async {
+      tasksForLater = await db.listTasksForLater();
+      notifyListeners();
+    });
+  }
+
+  Future<void> loadTasksFinished() async {
+    db = MyTasksDB();
+    db.init().whenComplete(() async {
+      tasksFinished = await db.listTasksFinished();
+      notifyListeners();
+    });
+  }
+
+  Future<void> loadTasksDeleted() async {
+    db = MyTasksDB();
+    db.init().whenComplete(() async {
+      tasksDeleted = await db.listTasksDeleted();
+      notifyListeners();
+    });
+  }
+
+  Future<void> load() async {
+    await loadTasksPending();
+    await loadTasksForLater();
+    await loadTasksFinished();
+    await loadTasksDeleted();
   }
 
   void create(String title) async {
@@ -97,28 +128,41 @@ class MyStateTask extends ChangeNotifier {
     });
   }
 
+  void reorderList(int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+
+    final item = tasks.removeAt(oldIndex);
+    tasks.insert(newIndex, item);
+    notifyListeners();
+  }
+
   Future<String?> updateScheduleDateTime(
-      int id, int index, DateTime? date, TimeOfDay? time) async {
+      MyTasksModel task, DateTime? date, TimeOfDay? time) async {
     db = MyTasksDB();
     var result = 'Erro, tente novamente';
     db.init().whenComplete(() async {
-      result = await db.updateScheduleDateTime(id, date, time);
+      result = await db.updateScheduleDateTime(task.id, date, time);
     });
+
+    const notification = ApiNotification();
+    await notification.showNotificationWithCustomTimestamp(task, date, time);
 
     await load();
 
-    const notification = ApiNotification();
-    await notification.showNotificationWithCustomTimestamp(
-        tasks[index], date, time);
-
     return result;
+  }
+
+  Future<void> updateFinishedAt(int id) async {
+    db = MyTasksDB();
+    db.init().whenComplete(() async {
+      await db.updateFinishedAt(id);
+    });
   }
 }
 
 class MyNavi2Task {
-  final int index;
-  final int id;
-  final String title;
-
-  MyNavi2Task(this.id, this.title, this.index);
+  final MyTasksModel task;
+  MyNavi2Task(this.task);
 }

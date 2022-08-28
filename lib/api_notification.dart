@@ -51,16 +51,20 @@ class ApiNotification {
     DateTime datetime = DateTime.parse(Sdatetime);
 
     if (date != null && time != null) {
-      await flutterLocalNotificationsPlugin.zonedSchedule(
-          10,
-          '${task.title}',
-          '${task.description}',
-          tz.TZDateTime(tz.local, date.year, date.month, date.day, time.hour,
-              time.minute),
-          platformChannelSpecifics,
-          androidAllowWhileIdle: true,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime);
+      if (tz.TZDateTime(
+              tz.local, date.year, date.month, date.day, time.hour, time.minute)
+          .isAfter(tz.TZDateTime.now(tz.getLocation('America/Sao_Paulo')))) {
+        await flutterLocalNotificationsPlugin.zonedSchedule(
+            10,
+            '${task.title}',
+            '${task.description}',
+            tz.TZDateTime(tz.local, date.year, date.month, date.day, time.hour,
+                time.minute),
+            platformChannelSpecifics,
+            androidAllowWhileIdle: true,
+            uiLocalNotificationDateInterpretation:
+                UILocalNotificationDateInterpretation.absoluteTime);
+      }
     }
   }
 }

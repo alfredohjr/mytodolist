@@ -97,6 +97,12 @@ class _MyHomePageState extends State<MyHomePage> {
         builder: (context, value, child) => Scaffold(
               appBar: AppBar(
                 title: Text('TodoList'),
+                actions: [
+                  Icon(
+                    Icons.construction,
+                    color: Colors.white,
+                  ),
+                ],
                 backgroundColor: const Color.fromRGBO(58, 80, 107, 1),
               ),
               body: Column(
@@ -107,9 +113,6 @@ class _MyHomePageState extends State<MyHomePage> {
                 ],
               ),
               backgroundColor: const Color.fromRGBO(28, 37, 65, 1),
-              floatingActionButton: FloatingActionButton(onPressed: () async {
-                await _showNotificationWithCustomTimestamp();
-              }),
             ));
   }
 }
@@ -153,55 +156,57 @@ class _MyListTasks extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<MyStateTask>(
-        builder: (context, value, child) => value.tasks.isEmpty
-            ? const Center(
-                child: Text('Vazio', style: TextStyle(color: Colors.white)),
-              )
-            : SingleChildScrollView(
-                child: Column(children: <Widget>[
-                  ExpansionTile(
-                      title: Text('Pendentes'),
-                      initiallyExpanded: true,
-                      collapsedTextColor: Colors.white,
-                      collapsedIconColor: Colors.white,
-                      children: <Widget>[
-                        ListView.separated(
-                          shrinkWrap: true,
-                          padding: EdgeInsets.fromLTRB(
-                            50,
-                            0,
-                            50,
-                            0,
-                          ),
-                          separatorBuilder: (BuildContext context, int index) =>
-                              const Divider(height: 3),
-                          itemCount: value.tasks.length,
-                          itemBuilder: (BuildContext context, index) => MyTask(
-                            id: value.tasks[index].id,
-                            title: value.tasks[index].title,
-                            description: value.tasks[index].description,
-                            active: value.tasks[index].active,
-                            index: index,
-                          ),
-                        )
-                      ]),
-                  ExpansionTile(
-                    title: Text('Adiados'),
-                    collapsedTextColor: Colors.white,
-                    collapsedIconColor: Colors.white,
-                  ),
-                  ExpansionTile(
-                    title: Text('Finalizados'),
-                    collapsedTextColor: Colors.white,
-                    collapsedIconColor: Colors.white,
-                  ),
-                  ExpansionTile(
-                    title: Text('Excluídos'),
-                    collapsedTextColor: Colors.white,
-                    collapsedIconColor: Colors.white,
-                  ),
+        builder: (context, value, child) => SingleChildScrollView(
+              child: Column(children: <Widget>[
+                MyExpansionList(title: 'Pendentes', tasks: value.tasksPending),
+                MyExpansionList(title: 'Adiados', tasks: value.tasksForLater),
+                MyExpansionList(
+                    title: 'Finalizados', tasks: value.tasksFinished),
+                MyExpansionList(title: 'Excluidos', tasks: value.tasksDeleted),
+              ]),
+            ));
+  }
+}
+
+class MyExpansionList extends StatelessWidget {
+  final String title;
+  final List<MyTasksModel> tasks;
+  MyExpansionList({Key? key, required this.title, required this.tasks})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext build) {
+    return Consumer<MyStateTask>(
+      builder: (context, value, child) => ExpansionTile(
+          title: Text(title),
+          trailing: Text('${tasks.length}'),
+          initiallyExpanded: true,
+          collapsedTextColor: Colors.white,
+          collapsedIconColor: Colors.white,
+          children: <Widget>[
+            ReorderableListView(
+                shrinkWrap: true,
+                padding: EdgeInsets.only(left: 30),
+                onReorder: (oldIndex, newIndex) =>
+                    {value.reorderList(oldIndex, newIndex)},
+                children: <Widget>[
+                  for (final item in tasks)
+                    ListTile(
+                      key: ValueKey(item),
+                      title: Text(item.title),
+                      subtitle: Text(item.description),
+                      textColor: Colors.white,
+                      selectedColor: Colors.black,
+                      onTap: () {
+                        Navigator.pushNamed(context, '/task',
+                            arguments: MyNavi2Task(item));
+                      },
+                      onLongPress: () {},
+                      hoverColor: Colors.black12,
+                    )
                 ]),
-              ));
+          ]),
+    );
   }
 }
 
@@ -231,7 +236,7 @@ class _MyTask extends State<MyTask> {
       builder: (context, value, child) => GestureDetector(
         onDoubleTap: () {
           Navigator.pushNamed(context, '/task',
-              arguments: MyNavi2Task(widget.id, widget.title, widget.index));
+              arguments: MyNavi2Task(value.tasks[0]));
         },
         onTap: () {
           value.changeActive(widget.id);
@@ -276,10 +281,10 @@ class MyTaskDetail extends StatelessWidget {
     return Consumer<MyStateTask>(
       builder: (context, value, child) => Scaffold(
         appBar: AppBar(
-          title: Text(args.title),
+          title: Text(args.task.title),
           backgroundColor: const Color.fromRGBO(58, 80, 107, 1),
         ),
-        body: MyTaskForm(index: args.index),
+        body: MyTaskForm(task: args.task),
         backgroundColor: const Color.fromRGBO(28, 37, 65, 1),
       ),
     );
@@ -287,9 +292,9 @@ class MyTaskDetail extends StatelessWidget {
 }
 
 class MyTaskForm extends StatefulWidget {
-  MyTaskForm({super.key, required this.index});
+  MyTaskForm({super.key, required this.task});
 
-  final index;
+  MyTasksModel task;
 
   @override
   MyTaskFormState createState() {
@@ -323,19 +328,19 @@ class MyTaskFormState extends State<MyTaskForm> {
             child: Column(
               children: [
                 TextFormField(
-                  initialValue: value.tasks[widget.index].title,
+                  initialValue: widget.task.title,
                   style: TextStyle(color: Colors.white),
                   decoration: inputDecoration('Titulo'),
                   validator: (title) {},
                   onSaved: (title) {
                     if (title != null) {
                       MyTasksModel task = MyTasksModel(
-                          id: value.tasks[widget.index].id,
+                          id: widget.task.id,
                           title: title,
-                          description: '---',
-                          active: 1,
+                          description: widget.task.description,
+                          active: widget.task.active,
                           scheduleAt: DateTime.now().toString());
-                      int id = value.tasks[widget.index].id;
+                      int id = widget.task.id;
                       value.update(id, task);
                     }
                   },
@@ -346,12 +351,12 @@ class MyTaskFormState extends State<MyTaskForm> {
                     minLines: 5,
                     maxLines: 8,
                     style: TextStyle(color: Colors.white),
-                    initialValue: value.tasks[widget.index].description),
+                    initialValue: widget.task.description),
                 SizedBox(height: 15),
                 TextField(
                   decoration: inputDecoration('Adiar até'),
                   controller: TextEditingController(
-                      text: value.tasks[widget.index].scheduleAt.toString()),
+                      text: widget.task.scheduleAt.toString()),
                   style: TextStyle(color: Colors.white),
                   onTap: () async {
                     DateTime? date = await showDatePicker(
@@ -363,12 +368,8 @@ class MyTaskFormState extends State<MyTaskForm> {
                     TimeOfDay? time = await showTimePicker(
                         context: context, initialTime: TimeOfDay.now());
 
-                    String? datePTBRFormatted =
-                        await value.updateScheduleDateTime(
-                            value.tasks[widget.index].id,
-                            widget.index,
-                            date,
-                            time);
+                    String? datePTBRFormatted = await value
+                        .updateScheduleDateTime(widget.task, date, time);
                     if (datePTBRFormatted != null) {
                       datetimeController.text = datePTBRFormatted;
                     }
@@ -377,13 +378,61 @@ class MyTaskFormState extends State<MyTaskForm> {
                 SizedBox(height: 15),
                 TextField(decoration: inputDecoration('tags')),
                 SizedBox(height: 15),
-                Checkbox(
-                    value: value.tasks[widget.index].active == 0 ? false : true,
-                    side: BorderSide(color: Colors.white, width: .2),
-                    onChanged: (nv) {
-                      value.changeActive(value.tasks[widget.index].id);
-                    }),
+                DropdownButton(
+                  hint: Text(
+                    'Trocar de lista',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  isExpanded: true,
+                  items: [
+                    DropdownMenuItem(
+                      child: Text('Default'),
+                      value: "default",
+                    )
+                  ],
+                  onChanged: (newValue) => {},
+                ),
                 SizedBox(height: 15),
+                SwitchListTile(
+                    title: Text(
+                      'Finalizado',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    value: false,
+                    onChanged: (bool newValue) => {}),
+                SwitchListTile(
+                    title: Text(
+                      'Ativo',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    subtitle: Text(
+                      'Para você saber o que está executando',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    value: true,
+                    onChanged: (bool newValue) => {}),
+                SwitchListTile(
+                    title: Text(
+                      'Deletar',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    subtitle: Text(
+                      'Marca a tarefa como deletada, mas ainda pode ser recuperada',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    value: true,
+                    onChanged: (bool newValue) => {}),
+                SwitchListTile(
+                    title: Text(
+                      'Deletar em definitivo',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    subtitle: Text(
+                      'Excluí a tarefa',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    value: true,
+                    onChanged: (bool newValue) => {})
               ],
             ),
           ),
